@@ -1,0 +1,97 @@
+/* Dashboard.css */
+
+.dashboard-container {
+    padding-bottom: 60px; /* Add padding to the bottom to avoid cutting off content */
+}
+
+.issue-carousel .slick-slide > div {
+    padding: 0 15px; /* Gutter between slides */
+}
+
+.issue-carousel .card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.issue-carousel .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12) !important;
+}
+
+.carousel-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transition: background-color 0.3s ease;
+}
+
+.carousel-arrow:hover {
+    background: #fff;
+}
+
+.carousel-arrow.prev-arrow {
+    left: -20px;
+}
+
+.carousel-arrow.next-arrow {
+    right: -20px;
+}
+
+.carousel-arrow.slick-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.card-footer {
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    padding: 0.75rem 1.25rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Reusing delete button styles for consistency */
+.delete-btn {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.delete-btn .btn-text {
+    transition: opacity 0.3s ease;
+}
+
+.delete-btn .trash-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.delete-btn:hover .btn-text {
+    opacity: 0;
+}
+
+.delete-btn:hover .trash-icon {
+    opacity: 1;
+}
+
+@media (max-width: 768px) {
+    .carousel-arrow.prev-arrow {
+        left: -10px;
+    }
+    .carousel-arrow.next-arrow {
+        right: -10px;
+    }
+}

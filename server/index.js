@@ -271,6 +271,90 @@ app.get('/my-issues', authenticateToken, (req, res) => {
   });
 });
 
+// Endpoint to delete a document
+app.delete('/documents/:id', authenticateToken, (req, res) => {
+    const document_id = req.params.id;
+    const user_id = req.user.user_id;
+
+    db.query('SELECT * FROM documents WHERE document_id = ? AND user_id = ?', [document_id, user_id], (err, results) => {
+        if (err) {
+            console.error('Error fetching document for deletion:', err);
+            return res.status(500).json({ success: false, message: 'Server error.' });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: 'Document not found or permission denied.' });
+        }
+
+        const document = results[0];
+        const filePath = document.document_file_path ? path.join(__dirname, 'uploads', path.basename(document.document_file_path)) : null;
+
+        const deleteDbRecord = () => {
+            db.query('DELETE FROM documents WHERE document_id = ?', [document_id], (dbErr) => {
+                if (dbErr) {
+                    console.error('Error deleting document from database:', dbErr);
+                    return res.status(500).json({ success: false, message: 'Failed to delete document record.' });
+                }
+                res.status(200).json({ success: true, message: 'Document deleted successfully.' });
+            });
+        };
+
+        if (filePath) {
+            fs.unlink(filePath, (unlinkErr) => {
+                if (unlinkErr && unlinkErr.code !== 'ENOENT') {
+                    console.error('Error deleting physical file:', unlinkErr);
+                    return res.status(500).json({ success: false, message: 'Failed to delete document file.' });
+                }
+                deleteDbRecord();
+            });
+        } else {
+            deleteDbRecord();
+        }
+    });
+});
+
+// Endpoint to delete an issue
+app.delete('/issues/:id', authenticateToken, (req, res) => {
+    const issue_id = req.params.id;
+    const user_id = req.user.user_id;
+
+    db.query('SELECT * FROM issues WHERE issue_id = ? AND user_id = ?', [issue_id, user_id], (err, results) => {
+        if (err) {
+            console.error('Error fetching issue for deletion:', err);
+            return res.status(500).json({ success: false, message: 'Server error.' });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: 'Issue not found or permission denied.' });
+        }
+
+        const issue = results[0];
+        const imagePath = issue.image_path ? path.join(__dirname, 'uploads', path.basename(issue.image_path)) : null;
+
+        const deleteDbRecord = () => {
+            db.query('DELETE FROM issues WHERE issue_id = ?', [issue_id], (dbErr) => {
+                if (dbErr) {
+                    console.error('Error deleting issue from database:', dbErr);
+                    return res.status(500).json({ success: false, message: 'Failed to delete issue record.' });
+                }
+                res.status(200).json({ success: true, message: 'Issue deleted successfully.' });
+            });
+        };
+
+        if (imagePath) {
+            fs.unlink(imagePath, (unlinkErr) => {
+                if (unlinkErr && unlinkErr.code !== 'ENOENT') {
+                    console.error('Error deleting image file:', unlinkErr);
+                    return res.status(500).json({ success: false, message: 'Failed to delete issue image.' });
+                }
+                deleteDbRecord();
+            });
+        } else {
+            deleteDbRecord();
+        }
+    });
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

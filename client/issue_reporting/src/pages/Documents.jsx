@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { mockData } from '../data/mockData';
+import { FaTrash } from 'react-icons/fa';
+import './Documents.css';
 
 const PageHeader = ({ title, onBack, backIcon }) => (
     <div className="d-flex align-items-center justify-content-between p-3 bg-primary text-white sticky-top">
@@ -23,16 +25,22 @@ const TabButton = ({ label, isActive, onClick }) => (
     </button>
 );
 
-const DocumentItem = ({ doc }) => (
+const DocumentItem = ({ doc, onDelete }) => (
     <div className="list-group-item d-flex justify-content-between align-items-center p-3 mb-2 rounded-3 shadow-sm">
         <div>
             <h6 className="mb-1 fw-bold">{doc.document_name}</h6>
             <p className="mb-1 text-muted">Issued: {format(new Date(doc.issue_date), 'PPP')}</p>
             {doc.expiry_date && <p className="mb-0 text-muted">Expires: {format(new Date(doc.expiry_date), 'PPP')}</p>}
         </div>
-        {doc.document_file_path && 
-            <a href={`http://localhost:5000${doc.document_file_path}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">View</a>
-        }
+        <div className="d-flex align-items-center">
+            {doc.document_file_path && 
+                <a href={`http://localhost:5000${doc.document_file_path}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary me-2">View</a>
+            }
+            <button className="btn btn-sm btn-outline-danger delete-btn" onClick={() => onDelete(doc.document_id)}>
+                <span className="btn-text">Delete</span>
+                <span className="trash-icon"><FaTrash /></span>
+            </button>
+        </div>
     </div>
 );
 
@@ -126,6 +134,26 @@ const AddDocumentModal = ({ isOpen, onClose, onDocumentAdded }) => {
     );
 };
 
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, isDeleting, error }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="confirmation-modal">
+            <div className="confirmation-modal-content">
+                <h3>Confirm Deletion</h3>
+                <p>Are you sure you want to delete this document? This action cannot be undone.</p>
+                {error && <div className="alert alert-danger">{error}</div>}
+                <div className="confirmation-modal-buttons">
+                    <button className="btn btn-secondary" onClick={onClose} disabled={isDeleting}>Cancel</button>
+                    <button className="btn btn-danger" onClick={onConfirm} disabled={isDeleting}>
+                        {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const DocumentsPage = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('personal');
@@ -133,6 +161,10 @@ const DocumentsPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [docToDelete, setDocToDelete] = useState(null);
+    const [deleteError, setDeleteError] = useState('');
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchDocuments = async () => {
         setLoading(true);
@@ -161,6 +193,33 @@ const DocumentsPage = () => {
         setPersonalDocs(prevDocs => [newDocument, ...prevDocs].sort((a, b) => new Date(b.issue_date) - new Date(a.issue_date)));
     };
 
+    const handleDeleteClick = (docId) => {
+        setDocToDelete(docId);
+        setShowConfirmModal(true);
+        setDeleteError('');
+    };
+
+    const confirmDelete = async () => {
+        if (!docToDelete) return;
+
+        setIsDeleting(true);
+        setDeleteError('');
+        try {
+            const token = localStorage.getItem('token');
+            await axios.delete(`http://localhost:5000/documents/${docToDelete}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setPersonalDocs(prevDocs => prevDocs.filter(doc => doc.document_id !== docToDelete));
+            setShowConfirmModal(false);
+            setDocToDelete(null);
+        } catch (err) {
+            console.error('Error deleting document:', err);
+            setDeleteError(err.response?.data?.message || 'Failed to delete document.');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     return (
         <div className="container-fluid bg-light min-vh-100 p-4 d-flex flex-column">
             <PageHeader title="Documents" onBack={() => navigate('/')} backIcon={<span style={{ color: 'white' }}>← Back</span>}/>
@@ -184,7 +243,7 @@ const DocumentsPage = () => {
                                 </div>
                                 <div className="list-group">
                                     {personalDocs.length > 0 ? (
-                                        personalDocs.map(doc => <DocumentItem key={doc.document_id} doc={doc} />)
+                                        personalDocs.map(doc => <DocumentItem key={doc.document_id} doc={doc} onDelete={handleDeleteClick} />)
                                     ) : (
                                         <p className="text-center text-muted">No personal documents found.</p>
                                     )}
@@ -217,6 +276,14 @@ const DocumentsPage = () => {
                 isOpen={isModalOpen} 
                 onClose={() => setIsModalOpen(false)} 
                 onDocumentAdded={handleDocumentAdded} 
+            />
+
+            <ConfirmationModal 
+                isOpen={showConfirmModal}
+                onClose={() => setShowConfirmModal(false)}
+                onConfirm={confirmDelete}
+                isDeleting={isDeleting}
+                error={deleteError}
             />
         </div>
     );

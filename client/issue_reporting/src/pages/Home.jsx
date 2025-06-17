@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './Home.css';
+import { FaFileAlt, FaExclamationTriangle, FaTasks } from 'react-icons/fa';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -10,15 +12,11 @@ const Home = () => {
         const storedUserName = localStorage.getItem('userName');
 
         if (!token) {
-            // If no token, redirect to login
             navigate('/login');
         } else if (storedUserName) {
             setUserName(storedUserName);
         } else {
-            // If token exists but userName is missing, try to fetch user info or redirect
-            // For now, we'll just set a generic name or redirect to login if userName is crucial
-            setUserName('User'); // Fallback to a generic name
-            // Alternatively, you could navigate('/login') here if userName is strictly required
+            setUserName('User'); 
         }
     }, [navigate]);
 
@@ -29,42 +27,35 @@ const Home = () => {
     };
 
     return (
-        <div className="container-fluid bg-light min-vh-100 p-4 d-flex flex-column justify-content-center align-items-center">
-            <div className="bg-white rounded-3 shadow-sm p-4 text-center" style={{ maxWidth: '28rem', width: '100%' }}>
-                <h1 className="mb-4 fw-bold">Welcome {userName}</h1>
-                <button className="btn btn-primary me-2" onClick={() => navigate('/dashboard')}>Dashboard</button>
-                <button className="btn btn-danger me-2" onClick={handleLogout}>Logout</button>
-                
-                <div className="d-grid gap-3 mb-4">
-                    <button 
-                        onClick={() => navigate('/report')} 
-                        className="btn btn-primary btn-lg rounded-3 fw-bold"
-                    >
-                        Issue Reporting
-                    </button>
-                    
-                    <button 
-                        onClick={() => navigate('/documents')} 
-                        className="btn btn-success btn-lg rounded-3 fw-bold"
-                    >
-                        Documents
-                    </button>
-                    
-                    <button 
-                        onClick={() => navigate('/circulars')} 
-                        className="btn btn-info btn-lg rounded-3 fw-bold"
-                    >
-                        Circulars
-                    </button>
+        <div className="home-container">
+            <header className="home-header">
+                <h1 className="welcome-message">Welcome, {userName}</h1>
+                <nav>
+                    <button className="btn btn-outline-light me-2" onClick={() => navigate('/dashboard')}>Dashboard</button>
+                    <button className="btn btn-danger" onClick={handleLogout}>Logout</button>
+                </nav>
+            </header>
+
+            <main className="home-main">
+                <div className="feature-card" onClick={() => navigate('/report')}>
+                    <FaExclamationTriangle size={40} className="feature-icon" />
+                    <h2>Report an Issue</h2>
+                    <p>Submit a new issue report. Provide details about the problem, and attach relevant screenshots or documents to help us resolve it quickly.</p>
+                    <button className="btn btn-primary">Go to Reporting</button>
                 </div>
-                
-                <div className="bg-light rounded-3 shadow-inner p-3 h-48 overflow-auto">
-                    <h3 className="mb-2 fw-semibold">News & Updates</h3>
-                    <p className="text-muted">
-                        Here are the latest updates. The system will be undergoing scheduled maintenance this Friday. Please save your work.
-                    </p>
+                <div className="feature-card" onClick={() => navigate('/documents')}>
+                    <FaFileAlt size={40} className="feature-icon" />
+                    <h2>View Documents</h2>
+                    <p>Access and review all submitted documents and reports. Search, filter, and manage your files in one centralized location.</p>
+                    <button className="btn btn-primary">Go to Documents</button>
                 </div>
-            </div>
+                <div className="feature-card" onClick={() => navigate('/status')}>
+                    <FaTasks size={40} className="feature-icon" />
+                    <h2>Check Status</h2>
+                    <p>Track the status of your reported issues. See the progress, view updates from the support team, and know when your issue is resolved.</p>
+                    <button className="btn btn-primary">Go to Status</button>
+                </div>
+            </main>
         </div>
     );
 };
