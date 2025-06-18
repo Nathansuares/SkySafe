@@ -103,13 +103,13 @@ app.post('/signup', async (req, res) => {
 
     try {
       const hashedPassword = await bcrypt.hash(password, 10); // Hash password with salt rounds = 10
-      const sql = 'INSERT INTO users (name, login_id, password_hash) VALUES (?, ?, ?)';
-      db.query(sql, [name, username, hashedPassword], (err, result) => {
+      const sql = 'INSERT INTO users (name, login_id, password_hash, role) VALUES (?, ?, ?, ?)';
+      db.query(sql, [name, username, hashedPassword, 'user'], (err, result) => {
         if (err) {
           console.error('Error inserting new user:', err);
           return res.status(500).json({ success: false, message: 'Server error during signup.' });
         }
-        console.log('New user registered:', { id: result.insertId, name, login_id: username });
+        console.log('New user registered:', { id: result.insertId, name, login_id: username, role: 'user' });
         res.status(201).json({ success: true, message: 'User registered successfully!' });
       });
     } catch (error) {
