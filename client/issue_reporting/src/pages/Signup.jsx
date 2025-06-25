@@ -7,6 +7,7 @@ const SignupPage = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [designation, setDesignation] = useState('Pilot');
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => { 
@@ -20,7 +21,8 @@ const SignupPage = () => {
             const response = await axios.post('http://localhost:5000/signup', { 
                 name,
                 username,
-                password
+                password,
+                designation
             });
             alert(response.data.message);
             if (response.data.success) {
@@ -80,6 +82,20 @@ const SignupPage = () => {
                             onChange={(e) => setConfirmPassword(e.target.value)} 
                             required 
                         />
+                    </div>
+                    <div className="mb-3">
+                        <label htmlFor="designationInput" className="form-label">Designation</label>
+                        <select 
+                            id="designationInput" 
+                            className="form-select" 
+                            value={designation} 
+                            onChange={(e) => setDesignation(e.target.value)} 
+                            required
+                        >
+                            <option value="Pilot">Pilot</option>
+                            <option value="Cabin crew">Cabin crew</option>
+                            <option value="Ground Staff">Ground Staff</option>
+                        </select>
                     </div>
                     <button type="submit" className="btn btn-success w-100 mb-3">Sign Up</button>
                     <p className="text-center mb-0">

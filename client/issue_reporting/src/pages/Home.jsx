@@ -3,6 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import './Home.css';
 import { FaFileAlt, FaExclamationTriangle, FaTasks } from 'react-icons/fa';
 
+// Helper to get user role from token
+const getUserRole = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.role;
+    } catch (e) {
+        return null;
+    }
+};
+
 const Home = () => {
     const navigate = useNavigate();
     const [userName, setUserName] = useState('User');
@@ -20,6 +32,15 @@ const Home = () => {
         }
     }, [navigate]);
 
+    const handleDashboardClick = () => {
+        const role = getUserRole();
+        if (role === 'admin') {
+            navigate('/admin-dashboard');
+        } else {
+            navigate('/dashboard');
+        }
+    };
+
     const handleLogout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('userName');
@@ -31,7 +52,7 @@ const Home = () => {
             <header className="home-header">
                 <h1 className="welcome-message">Welcome, {userName}</h1>
                 <nav>
-                    <button className="btn btn-outline-light me-2" onClick={() => navigate('/dashboard')}>Dashboard</button>
+                    <button className="btn btn-outline-light me-2" onClick={handleDashboardClick}>Dashboard</button>
                     <button className="btn btn-danger" onClick={handleLogout}>Logout</button>
                 </nav>
             </header>

@@ -26,8 +26,8 @@ const authenticateToken = (req, res, next) => {
     return res.sendStatus(401); // No token
   }
 
-  console.log('Token received:', token);
-  console.log('JWT_SECRET used for verification:', JWT_SECRET);
+  //console.log('Token received:', token);
+  //console.log('JWT_SECRET used for verification:', JWT_SECRET);
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
@@ -85,10 +85,15 @@ app.get('/', (req, res) => {
 
 // Signup endpoint
 app.post('/signup', async (req, res) => {
-  const { name, username, password } = req.body;
+  const { name, username, password, designation } = req.body;
 
-  if (!name || !username || !password) {
+  if (!name || !username || !password || !designation) {
     return res.status(400).json({ success: false, message: 'All fields are required.' });
+  }
+
+  const validDesignations = ['Pilot', 'Cabin crew', 'Ground Staff'];
+  if (!validDesignations.includes(designation)) {
+    return res.status(400).json({ error: 'Valid designation is required' });
   }
 
   // Check if username already exists in DB
@@ -103,13 +108,13 @@ app.post('/signup', async (req, res) => {
 
     try {
       const hashedPassword = await bcrypt.hash(password, 10); // Hash password with salt rounds = 10
-      const sql = 'INSERT INTO users (name, login_id, password_hash, role) VALUES (?, ?, ?, ?)';
-      db.query(sql, [name, username, hashedPassword, 'user'], (err, result) => {
+      const sql = 'INSERT INTO users (name, login_id, password_hash, role, designation) VALUES (?, ?, ?, ?, ?)';
+      db.query(sql, [name, username, hashedPassword, 'user', designation], (err, result) => {
         if (err) {
           console.error('Error inserting new user:', err);
           return res.status(500).json({ success: false, message: 'Server error during signup.' });
         }
-        console.log('New user registered:', { id: result.insertId, name, login_id: username, role: 'user' });
+        console.log('New user registered:', { id: result.insertId, name, login_id: username, role: 'user', designation });
         res.status(201).json({ success: true, message: 'User registered successfully!' });
       });
     } catch (error) {
@@ -148,12 +153,12 @@ app.post('/login', (req, res) => {
 
     // Generate JWT
     const token = jwt.sign(
-      { user_id: user.user_id, name: user.name, login_id: user.login_id },
+      { user_id: user.user_id, name: user.name, login_id: user.login_id, role: user.role },
       JWT_SECRET,
-      { expiresIn: '1h' } // Token expires in 1 hour
+      { expiresIn: '24h' } // Token expires in 24 hours
     );
 
-    res.status(200).json({ success: true, message: 'Login successful!', token, user: { id: user.user_id, name: user.name, login_id: user.login_id } });
+    res.status(200).json({ success: true, message: 'Login successful!', token, user: { id: user.user_id, name: user.name, login_id: user.login_id, role: user.role } });
   });
 });
 
@@ -271,6 +276,37 @@ app.get('/my-issues', authenticateToken, (req, res) => {
   });
 });
 
+// Endpoint to get all issues for admin
+app.get('/admin/issues', authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Access denied. Admins only.' });
+  }
+
+  const sql = `
+    SELECT 
+        i.issue_id, 
+        i.issue_name, 
+        i.issue_details, 
+        i.image_path, 
+        i.date_time, 
+        i.status, 
+        i.status_updated_at, 
+        u.name AS reporter_username, 
+        u.designation AS reporter_designation 
+    FROM issues i 
+    LEFT JOIN users u ON i.user_id = u.user_id 
+    ORDER BY i.date_time DESC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error fetching all issues for admin:', err);
+      return res.status(500).json({ success: false, message: 'Server error fetching issues.' });
+    }
+    res.status(200).json({ success: true, issues: results });
+  });
+});
+
 // Endpoint to delete a document
 app.delete('/documents/:id', authenticateToken, (req, res) => {
     const document_id = req.params.id;
@@ -310,6 +346,142 @@ app.delete('/documents/:id', authenticateToken, (req, res) => {
         } else {
             deleteDbRecord();
         }
+    });
+});
+
+// Endpoint for admin to delete an issue
+app.delete('/admin/issues/:id', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Access denied. Admins only.' });
+    }
+
+    const issue_id = req.params.id;
+
+    db.query('SELECT * FROM issues WHERE issue_id = ?', [issue_id], (err, results) => {
+        if (err) {
+            console.error('Error fetching issue for deletion:', err);
+            return res.status(500).json({ success: false, message: 'Server error.' });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: 'Issue not found.' });
+        }
+
+        const issue = results[0];
+        const imagePath = issue.image_path ? path.join(__dirname, path.basename(issue.image_path)) : null;
+
+        const deleteDbRecord = () => {
+            db.query('DELETE FROM issues WHERE issue_id = ?', [issue_id], (dbErr) => {
+                if (dbErr) {
+                    console.error('Error deleting issue from database:', dbErr);
+                    return res.status(500).json({ success: false, message: 'Failed to delete issue record.' });
+                }
+                res.status(200).json({ success: true, message: 'Issue deleted successfully.' });
+            });
+        };
+
+        if (imagePath && fs.existsSync(imagePath)) {
+            fs.unlink(imagePath, (unlinkErr) => {
+                if (unlinkErr) {
+                    console.error('Error deleting image file:', unlinkErr);
+                    // Decide if you should still delete the DB record. For now, we will.
+                }
+                deleteDbRecord();
+            });
+        } else {
+            deleteDbRecord();
+        }
+    });
+});
+
+// Endpoint to update issue status to 'under process'
+app.put('/admin/issues/:id/under-process', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Access denied. Admins only.' });
+    }
+
+    const issue_id = req.params.id;
+
+    const sql = `
+        UPDATE issues 
+        SET status = 'under process', status_updated_at = CURRENT_TIMESTAMP 
+        WHERE issue_id = ?
+    `;
+
+    db.query(sql, [issue_id], (err, result) => {
+        if (err) {
+            console.error('Error updating issue status:', err);
+            return res.status(500).json({ success: false, message: 'Server error updating issue status.' });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Issue not found.' });
+        }
+        res.status(200).json({ success: true, message: 'Issue status updated to under process.' });
+    });
+});
+
+// Endpoint to resolve an issue
+app.post('/admin/issues/:id/resolve', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Access denied. Admins only.' });
+    }
+
+    const issue_id = req.params.id;
+    const { response } = req.body;
+
+    if (!response) {
+        return res.status(400).json({ success: false, message: 'Response is required.' });
+    }
+
+    db.beginTransaction(err => {
+        if (err) {
+            console.error('Error starting transaction:', err);
+            return res.status(500).json({ success: false, message: 'Server error.' });
+        }
+
+        // Step 1: Copy the issue to resolved_issues
+        const copySql = `
+            INSERT INTO resolved_issues (issue_id, user_id, issue_name, issue_site, location, latitude, longitude, date_time, timezone, issue_details, image_path, status, status_updated_at, response)
+            SELECT issue_id, user_id, issue_name, issue_site, location, latitude, longitude, date_time, timezone, issue_details, image_path, 'resolved', CURRENT_TIMESTAMP, ?
+            FROM issues
+            WHERE issue_id = ?
+        `;
+
+        db.query(copySql, [response, issue_id], (copyErr, result) => {
+            if (copyErr) {
+                console.error('Error copying issue to resolved_issues:', copyErr);
+                return db.rollback(() => {
+                    res.status(500).json({ success: false, message: 'Failed to resolve issue.' });
+                });
+            }
+
+            if (result.affectedRows === 0) {
+                return db.rollback(() => {
+                    res.status(404).json({ success: false, message: 'Issue not found.' });
+                });
+            }
+
+            // Step 2: Delete the issue from the original table
+            const deleteSql = 'DELETE FROM issues WHERE issue_id = ?';
+            db.query(deleteSql, [issue_id], (deleteErr) => {
+                if (deleteErr) {
+                    console.error('Error deleting issue from issues table:', deleteErr);
+                    return db.rollback(() => {
+                        res.status(500).json({ success: false, message: 'Failed to remove resolved issue from active list.' });
+                    });
+                }
+
+                db.commit(commitErr => {
+                    if (commitErr) {
+                        console.error('Error committing transaction:', commitErr);
+                        return db.rollback(() => {
+                            res.status(500).json({ success: false, message: 'Failed to finalize issue resolution.' });
+                        });
+                    }
+                    res.status(200).json({ success: true, message: 'Issue resolved successfully.' });
+                });
+            });
+        });
     });
 });
 
